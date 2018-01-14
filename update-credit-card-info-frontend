@@ -1,0 +1,266 @@
+<page page_id="esp_event_book_update_cc">
+  <comment>Because we do not want user to see current CC Info, we
+  can not use regular edit form to update it. That is why we have
+  remove CC Info from edit form and hard-coded it here.
+  </comment>
+  <shared_content content_id="staff_protection" />
+  <form name="cc_edit" type="Misc">
+    <params_prog><![CDATA[
+      $params['customer_name'] = lookupColumnById("CUSTOMER","UID",%customer_id%,"CUSTOMER_NAME") ;
+    
+      $event_book_rec = lookupRecordById("ESP_EVENT_BOOK","UID",%event_book_id%) ;
+      
+      // ********************** Put CC info on screen *****************************  
+      // Show credit card info only to accounting and corporate users
+      
+      // ******** CC1 ********
+      if (is_null($event_book_rec['CC_NO']))
+      {
+        $cc1_on_file = "no" ;
+        $cc1_info = "<p><label>CC1 Info:</label> Not on File</p>";
+      }  
+      else
+      {
+        $cc1_on_file = "yes" ;
+        // For non-corp or accounting only show on file and not actual numbers
+        if (! userIsAccounting())
+          $cc1_info = "<p><label>CC1 Info: </label> ** On File **</p>";
+        else
+          // Show full info only to corporate and accounting
+          $cc1_info = "<p><label>Type: </label> " . $GLOBALS['des_credit_card_type'][$event_book_rec['CC_TYPE']] . "</p>"
+                    . "<p><label>Number: </label> " . maskCreditCardNumber($event_book_rec['CC_NO'],"show_first_4_last_4") . "</p>"  
+                    . "<p><label>Expiry: </label> " . $event_book_rec['CC_EXPIRY'] . "</p>" 
+                    . "<p><label>Security Code: </label> " . $event_book_rec['CC_SECURITY_CODE'] . "</p>";
+      }
+      $params['cc1_on_file'] = $cc1_on_file ;
+      $params['cc1_info'] = $cc1_info ;
+      
+      // ******** CC2 ********
+      if (is_null($event_book_rec['CC2_NO']))
+      {
+        $cc2_on_file = "no" ;
+        $cc2_info = "<p><label>CC2 Info:</label> Not on File</p>";
+      }  
+      else
+      {
+        $cc2_on_file = "yes" ;
+        // For non-corp or accounting only show on file and not actual numbers
+        if (! userIsAccounting())
+          $cc2_info = "<p><label>CC2 Info: </label> ** On File ** </p>";
+        else
+          // Show full info only to corporate and accounting
+          $cc2_info = "<p><label>Type: </label> " . $GLOBALS['des_credit_card_type'][$event_book_rec['CC2_TYPE']] . "</p>"
+                    . "<p><label>Number: </label> " . 
+                        maskCreditCardNumber($event_book_rec['CC2_NO'],"show_first_4_last_4") . "</p>"
+                    . "<p><label>Expiry: </label> " . $event_book_rec['CC2_EXPIRY'] . "</p>"
+                    . "<p><label>Security Code: </label> " . $event_book_rec['CC2_SECURITY_CODE'] . "</p>" ;
+      }
+      $params['cc2_on_file'] = $cc2_on_file ;
+      $params['cc2_info'] = $cc2_info ;
+    ]]></params_prog>
+    <form_body>
+      <scr_section>cc1</scr_section>
+        <scr_elm elm_id="esp_event_book_cc_type">
+          <custom_html_id>cc1_type</custom_html_id>
+          <show_on_no_value>~def_show_on_no_value~</show_on_no_value>
+          <default_value>~def_show_on_no_value~</default_value>
+        </scr_elm>
+        <format_item><![CDATA[<div class="line_break"></div>]]></format_item>
+        <scr_elm elm_id="esp_event_book_cc_no">
+          <custom_html_id>cc1_num</custom_html_id>
+        </scr_elm>
+        
+        <format_item><![CDATA[<div class="line_break"></div>]]></format_item>
+        <scr_elm elm_id="esp_event_book_cc_expiry">
+          <custom_html_id>cc1_expiry</custom_html_id>
+        </scr_elm>
+        
+        <format_item><![CDATA[<div class="line_break"></div>]]></format_item>
+        <scr_elm elm_id="esp_event_book_cc_security_code">
+          <custom_html_id>cc1_security_code</custom_html_id>
+        </scr_elm>
+        
+      <scr_section>cc2</scr_section>
+        <scr_elm elm_id="esp_event_book_cc2_type">
+          <custom_html_id>cc2_type</custom_html_id>
+          <show_on_no_value>~def_show_on_no_value~</show_on_no_value>
+          <default_value>~def_show_on_no_value~</default_value>
+        </scr_elm>
+        <format_item><![CDATA[<div class="line_break"></div>]]></format_item>
+        <scr_elm elm_id="esp_event_book_cc2_no">
+          <custom_html_id>cc2_num</custom_html_id>
+        </scr_elm>
+        
+        <format_item><![CDATA[<div class="line_break"></div>]]></format_item>
+        <scr_elm elm_id="esp_event_book_cc2_expiry">
+          <custom_html_id>cc2_expiry</custom_html_id>
+        </scr_elm>
+        
+        <format_item><![CDATA[<div class="line_break"></div>]]></format_item>
+        <scr_elm elm_id="esp_event_book_cc2_security_code">
+          <custom_html_id>cc2_security_code</custom_html_id>
+        </scr_elm>
+        
+    </form_body>
+    <form_footer>
+      <scr_section>form_footer</scr_section>
+        <action_elm elm_id="action_misc">
+          <label>Update Credit Cards</label>
+          <custom_html_id>btn_update_cc_info</custom_html_id>
+          <do_after><program_code>
+            $new_rec = array() ;            
+            // We do not need validate here as already validated through JavaScript
+            $cc1_num = trim($_POST['cc1_num']) ;
+            if (! empty($cc1_num))
+            {
+              $new_rec['CC_TYPE'] = $_POST['cc1_type'] ;
+              $new_rec['CC_NO'] = $cc1_num ;
+              $new_rec['CC_SECURITY_CODE'] = trim($_POST['cc1_security_code']) ;
+              $new_rec['CC_EXPIRY'] = $_POST['cc1_expiry'] ;
+            }
+            
+            $cc2_num = trim($_POST['cc2_num']) ;
+            if (! empty($cc2_num))
+            {
+              $new_rec['CC2_TYPE'] = $_POST['cc2_type'] ;
+              $new_rec['CC2_NO'] = $cc2_num ;
+              $new_rec['CC2_SECURITY_CODE'] = trim($_POST['cc2_security_code']) ;
+              $new_rec['CC2_EXPIRY'] = $_POST['cc2_expiry'] ;
+            }
+            if (! empty($new_rec))
+            {
+              $do_record = new doRecord("ESP_EVENT_BOOK") ;
+              $do_record -> new_record = $new_rec ;
+              $do_record -> id_column_val = %event_book_id% ;
+              if($do_record -> updateRecord())
+                setGlobalMsg("Credit card info. for this booking was updated.") ;
+              unset($do_record) ;
+            }
+            else
+              setGlobalMsg("Nothing to update. If you want to clear credit cards, please use clear button.") ;
+            unset($new_rec) ;
+          </program_code></do_after>
+          <do_after><page_id>#current_url#</page_id></do_after>
+        </action_elm>
+        <action_elm elm_id="action_misc">
+          <label>Clear All Cards</label>
+          <custom_html_id>btn_clear_cc_info</custom_html_id>
+          <message_before>Are you sure you to clear customer Credit Card Info?</message_before>
+          <do_after><program_code>
+            $do_record = new doRecord("ESP_EVENT_BOOK") ;
+            $new_rec = array() ;
+            $new_rec['CC_TYPE'] = Null ;
+            $new_rec['CC_NO'] = Null ;
+            $new_rec['CC_SECURITY_CODE'] = Null ;
+            $new_rec['CC_EXPIRY'] = Null ;
+            $new_rec['CC2_TYPE'] = Null ;
+            $new_rec['CC2_NO'] = Null ;
+            $new_rec['CC2_SECURITY_CODE'] = Null ;
+            $new_rec['CC2_EXPIRY'] = Null ;
+            $do_record -> new_record = $new_rec ;
+            $do_record -> id_column_val = %event_book_id% ;
+            if($do_record -> updateRecord())
+              setGlobalMsg("Credit card info. for this booking was cleared.") ;
+            unset($new_rec) ;
+            unset($do_record) ;
+          </program_code></do_after>
+          <do_after><page_id>#current_url#</page_id></do_after>
+        </action_elm>
+    </form_footer>
+    <layout><![CDATA[
+      <h3>Customer: %customer_name%</h3>
+      <p>Please enter new customer credit card info and click continue
+      to update</p>
+      <div class="line_break"></div>
+      <br />
+      <fieldset class="main_cc">
+        <legend>First Credit Card</legend>
+        
+        <fieldset><legend>Current Info</legend>%cc1_info%</fieldset>
+        <fieldset><legend>Update To</legend>#cc1#</fieldset>
+        
+      </fieldset>
+      <fieldset class="main_cc">
+        <legend>Second Credit Card</legend>
+        
+        <fieldset><legend>Current Info</legend>%cc2_info%</fieldset>
+        <fieldset><legend>Update To</legend>#cc2#</fieldset>
+      </fieldset>
+      
+      <div class="line_break"></div>
+      <br />
+      <div id="form_footer">#form_footer#</div>
+      
+      <style type="text/css">
+        ##cur_form_name# label              {min-width: 110px;}
+        ##cur_form_name# .main_cc           {display: inline-block; width: 47%; 
+                                            veritcal-align: top; min-height: 270px;}
+        ##cur_form_name# fieldset fieldset  {border-left: 0; border-bottom: 0; border-right: 0;
+                                            border-radius: 0; height: 105px;}
+        ##cur_form_name# fieldset fieldset legend 
+                                            {color: #99001e;}
+      </style>
+      
+      <script type="text/javascript">
+        $(function()
+        {
+          $("#btn_update_cc_info").click(function()
+          {
+            if (confirm("Are you sure you to update customer Credit Card Info?"))
+            {
+              // Validate both credit cards
+              result = validateCreditCardInfo(1) ;
+              if (result)
+                result = validateCreditCardInfo(2) ;
+            }
+            else 
+              result = false ; // Cancel the click
+              
+            return result ;  
+          }) ;
+        }) ; // document.ready
+        
+        // Validates credit card 1 or 2
+        function validateCreditCardInfo(i)
+        {
+          result = true ;
+          
+          // Validate the form 
+          cc_num = $.trim($("#cc" + i + "_num").val()) ;
+          if (cc_num != "")
+          {
+            // If cc entered, make sure that type and expiry have been entered as well
+            if ($("#cc" + i + "_type").val() == "~def_show_on_no_value~")
+            {
+              alert("Please select type for Credit Card " + i) ;
+              result = false ;
+            }
+            else 
+            {
+              cc_expiry = $.trim($("#cc" + i + "_expiry").val()) ;
+              if (cc_expiry.length != 4)
+              {
+                alert("Please enter expiry for Credit Card " + i + " in MMYY fromat") ;
+                result = false ;
+              }
+              
+              cc_security_code = $.trim($("#cc" + i + "_security_code").val()) ;
+              if (cc_security_code.length < 3)
+              {
+                alert("Please enter CVD number for Credit Card " + i + " 3-4 digits on the back of the Card") ;
+                result = false ;
+              }
+              
+            }
+          } // cc entered
+            
+          return result ;  
+        } // validateCreditCardInfo
+      </script>
+        
+    ]]></layout>
+  </form>
+  <layout>#cc_edit#</layout>
+  <title><![CDATA[Update Customer Credit Card Info]]></title>
+  <width>820</width>
+</page>
