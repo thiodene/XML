@@ -1,0 +1,311 @@
+<page page_id="esp_event_book_payment_new">
+  <shared_content content_id="sales_protection" />
+  <form name="new_payment" type="SingleNew">
+    <params_prog><![CDATA[
+      // Find the informationto show on screen
+      $event_book_rec = lookupRecordById("ESP_EVENT_BOOK","UID",%event_book_id%) ;
+      $customer_rec = lookupRecordById("CUSTOMER","UID",$event_book_rec['LNK_CUSTOMER']) ;
+      $cu_contact_rec = lookupRecordById("CUSTOMER_CONTACT","UID",$event_book_rec['LNK_CUSTOMER_CONTACT']) ;
+      
+      $customer_name = $cu_contact_rec['LAST_NAME'] . ", " . $cu_contact_rec['FIRST_NAME'] ;
+      if ($customer_rec['CUSTOMER_TYPE'] == CUSTOMER_TYPE_CORPORATE)
+        $customer_name .= " (" . $customer_rec['CUSTOMER_NAME'] . ")" ;
+      $payment_info = "<label>Total Booking:</label> \$" . number_format($event_book_rec['TOTAL_MENU_ITEMS'],2) ;
+      $payment_info .= "<br /><label>Gratuity:</label> \$" . number_format($event_book_rec['GRATUITY_AMOUNT'],2) ;
+      if ($event_book_rec['TOTAL_EXTRA_OPTIONS'] != 0)
+        $payment_info .= "<br /><label>Extra Options:</label> \$" . number_format($event_book_rec['TOTAL_EXTRA_OPTIONS'],2) ;
+      $payment_info .= "<br /><label>Subtotal:</label> \$" . number_format($event_book_rec['SUB_TOTAL'],2) ;
+      $payment_info .= "<br /><label>After Taxes:</label> \$" . number_format($event_book_rec['GRAND_TOTAL'],2) ;
+      $payment_info .= "<br /><label>Total Paid:</label> \$" . number_format($event_book_rec['TOTAL_PAID'],2) ;
+      $payment_info .= "<br /><label>Balance:</label> \$" . number_format($event_book_rec['CUR_BALANCE'],2) ;
+    
+      $params['customer_name'] = $customer_name ;
+      $params['payment_info'] = $payment_info ;
+      $params['def_payment_amount'] = $event_book_rec['CUR_BALANCE'] ;
+      
+      // ********************** Credit Card Info ************************
+      // Also find and fill in the customer credit card information
+      $cc_num = $event_book_rec['CC_NO'] ;
+      if (is_null($cc_num))
+        $cc_num = "" ;
+      $params['customer_cc_num'] = $cc_num ;
+      
+      $cc_code = $event_book_rec['CC_SECURITY_CODE'] ;
+      if (is_null($cc_code))
+        $cc_code = "" ;
+      $params['customer_cc_code'] = $cc_code ;
+      
+      $cc_expiry_month = substr($event_book_rec['CC_EXPIRY'],0,2) ;
+      $cc_expiry_year = substr($event_book_rec['CC_EXPIRY'],2) ;
+      
+      $year_options = "" ;
+      for($i = 0 ; $i < 10 ; $i++)
+      {
+        $year = date("Y") + $i ;
+        $year_options .= "<option value=\"" . substr($year,2) . "\"" ;
+        if (substr($year,2) == $cc_expiry_year)
+          $year_options .= " selected=\"selected\"" ;
+        $year_options .= ">" . $year . "</option>" ;
+      }
+      $params['year_options'] = $year_options ;
+      
+      $month_options = "<option value=\"----\">----</option>" ;
+      foreach($GLOBALS['des_month_names'] as $month_num => $month_name)
+      {
+        $month_options .= "<option value=\"" . $month_num . "\"" ;
+        if ($month_num == $cc_expiry_month)
+          $month_options .= " selected=\"selected\"" ;
+        $month_options .= ">" . $month_name . "</option>" ;
+      }
+      $params['month_options'] = $month_options ;
+      
+      // Also put customer name in a hidden input that is posted when processing online
+      $params['customer_name'] = $customer_name ;
+      
+      // *********** Show both credit cards on screen ************
+      $cc1_type = $event_book_rec['CC_TYPE'] ;
+      $cc1_no = $event_book_rec['CC_NO'] ;
+      $cc1_expiry = $event_book_rec['CC_EXPIRY'] ;
+      $cc1_code = $event_book_rec['CC_SECURITY_CODE'] ;
+      $cc2_type = $event_book_rec['CC2_TYPE'] ;
+      $cc2_no = $event_book_rec['CC2_NO'] ;
+      $cc2_expiry = $event_book_rec['CC2_EXPIRY'] ;
+      $cc2_code = $event_book_rec['CC2_SECURITY_CODE'] ;
+      
+      if (! empty($cc1_no))
+      {
+        $cc1_info = "<p>Type: " . $GLOBALS['des_credit_card_type'][$cc1_type] . "</p>" ;
+        $cc1_info .= "<p>Number: " . maskCreditCardNumber($cc1_no,"show_first_4_last_4") . "</p>" ;
+        $cc1_info .= "<p>Expiry: " . date("F Y",strtotime("20" . substr($cc1_expiry,2) 
+                                    . "-" . substr($cc1_expiry,0,2) . "-01")) . "</p>" ;
+      }
+      else
+        $cc1_info = "<h3>No Credit Card on File.</h3>" ;
+      $cc1_info = '<fieldset class="cc_info">
+                    <legend cc_num="' . $cc1_no . '" 
+                            exp_month="' . substr($cc1_expiry,0,2) . '"
+                            exp_year="' . substr($cc1_expiry,2) . '"
+                            cc_code="' . $cc1_code . '" 
+                      >Credit Card 1 (Click to Use)</legend>' . $cc1_info 
+                . '</fieldset>' ;
+      $params['cc1_info'] = $cc1_info ;
+      
+      if (! empty($cc2_no))
+      {
+        $cc2_info = "<p>Type: " . $GLOBALS['des_credit_card_type'][$cc2_type] . "</p>" ;
+        $cc2_info .= "<p>Number: " . maskCreditCardNumber($cc2_no,"show_first_4_last_4") . "</p>" ;
+        $cc2_info .= "<p>Expiry: " . date("F Y",strtotime("20" . substr($cc2_expiry,2) 
+                                      . "-" . substr($cc2_expiry,0,2) . "-01")) . "</p>" ;
+      }
+      else
+        $cc2_info = "<h3>No Second Credit Card on File.</h3>" ;
+      $cc2_info = '<fieldset class="cc_info">
+                      <legend cc_num="' . $cc2_no . '" 
+                            exp_month="' . substr($cc2_expiry,0,2) . '"
+                            exp_year="' . substr($cc2_expiry,2) . '"
+                            cc_code="' . $cc2_code . '" 
+                        >Credit Card 2 (Click to Use)</legend>' . $cc2_info . '</fieldset>' ;
+      $params['cc2_info'] = $cc2_info ;
+    ]]></params_prog>
+    <table_name>PAYMENT</table_name><id_column>UID</id_column>
+    <form_body>
+      <scr_elm elm_id="payment_related_table">
+        <default_value>~PAYMENT_REL_TBL_ESP_EVENT_BOOK~</default_value>
+      </scr_elm>
+      <scr_elm elm_id="payment_lnk_related_rec">
+        <default_value>%event_book_id%</default_value>
+      </scr_elm>
+      <scr_elm elm_id="payment_payment_date">
+        <default_value>~today~</default_value>
+      </scr_elm>
+      
+      <scr_section>form_body</scr_section>
+        <scr_elm elm_id="payment_payment_amount">
+          <default_value>%def_payment_amount%</default_value>
+          <custom_html_id>payment_amount</custom_html_id>
+        </scr_elm>
+        <format_item><![CDATA[<div class="line_break"></div>]]></format_item>
+        <scr_elm elm_id="payment_payment_method">
+          <custom_html_id>payment_method</custom_html_id>
+          <bound_array>des_payment_payment_method_active</bound_array>
+          <default_value>~def_show_on_no_value~</default_value>
+          <show_on_no_value>~def_show_on_no_value~</show_on_no_value>
+        </scr_elm>
+        <format_item><![CDATA[<div class="line_break"></div>]]></format_item>
+        <scr_elm elm_id="payment_transaction_type">
+          <custom_html_id>transact_type</custom_html_id>
+          <default_value>~def_show_on_no_value~</default_value>
+          <show_on_no_value>~def_show_on_no_value~</show_on_no_value>
+        </scr_elm>
+        <format_item><![CDATA[<div class="line_break"></div>]]></format_item>
+        <scr_elm elm_id="payment_payment_notes">
+          <custom_html_id>payment_notes</custom_html_id>
+        </scr_elm>
+    </form_body>
+    <form_footer>
+      <scr_section>action_save_only</scr_section>
+        <action_elm elm_id="action_save">
+          <label>Save</label>
+          <do_after><page_id><![CDATA[#current_url#?tab=deposit]]></page_id></do_after>
+        </action_elm>
+        
+      <scr_section>action_process_online</scr_section>
+        <action_elm elm_id="action_edit" comment="Process Payment Now">
+          <label><![CDATA[Process Payment]]></label>
+          <custom_html_id>btn_process_online</custom_html_id>
+          <do_after><program_code><![CDATA[
+            // Find the name to put on card and build cc_info array
+            
+            $cc_info = array('cc_num' => $_POST['cc_num']
+                           , 'expiry_month' => $_POST['cc_expiry_month']
+                           , 'expiry_year' => $_POST['cc_expiry_year']
+                           , 'cvd' => $_POST['cc_code']
+                           , 'name_on_cc' => "%customer_name%") ;
+            
+            // Process the payment online. If it goes through, then set the deposit as paid
+            // otherwise leave the deposit as due or past due so user can try the payment again
+            $transact_type = $_POST['transact_type'] ;
+            $payment_amount = round($_POST['payment_amount'],2) ;
+            $cu_contact_id = lookupColumnById("ESP_EVENT_BOOK","UID",%event_book_id%,"LNK_CUSTOMER_CONTACT") ;
+            $pay_result = processOnlinePaymentBambora("esp-%event_book_id%","" // Order name can be empty and system finds it from customer contact
+                                                ,$payment_amount,$transact_type,$cc_info
+                                                ,$cu_contact_id) ;
+
+            // Insert a new record into PAYMENT table, even if it fails. The reason is we want to track
+            // event failed transactions
+            $payment_info = array() ;
+            $payment_info['payment_amount'] = $payment_amount ;
+            $payment_info['overhead_percent'] = 0 ; 
+            $payment_info['payable_amount'] = $payment_amount ; 
+            $payment_info['notes'] = $_POST['payment_notes'] ; 
+            
+            // Add transaction record and other info
+            if ($pay_result['error']) 
+            {
+              $payment_info['was_fine'] = NO ;
+              $payment_info['trans_record'] = $pay_result['error_desc'] ;
+            }
+            else  
+            {
+              $payment_info['was_fine'] = YES ;
+              $payment_info['trans_record'] = $pay_result['trans_record'] ;
+            }                  
+            insertPaymentRecord($transact_type,$_POST['payment_method'],$payment_info,PAYMENT_REL_TBL_ESP_EVENT_BOOK,%event_book_id%) ;
+            
+            // Show final message
+            if ($pay_result['error'] == true)
+              setGlobalMsg("ERROR PROCESSING PAYMENT" . $pay_result['error_desc']) ;
+            else
+            {
+              setGlobalMsg("Transaction approved for reservation number: %event_book_id%") ;
+              loadNewPage("#current_url#") ;
+            } // went through            
+          ]]></program_code></do_after>
+        </action_elm>
+    </form_footer>
+    <layout><![CDATA[
+      <h2 style="text-align: center;">%customer_name%</h2>
+      <h3>%payment_info%</h3>
+      <div class="line_break"></div>
+      <br />
+      
+      #form_body#
+      <div class="line_break"></div>
+      <div class="form_footer">#action_save_only#</div>
+      
+      <div class="line_break"></div>
+      %cc1_info% %cc2_info%
+      <div class="line_break"></div>      
+      
+      <fieldset id="online_pay">
+        <legend>Online Pay</legend>
+        <div>
+          <label>CC Number:</label> <input type="text" value="%customer_cc_num%" name="cc_num" id="cc_num" />
+          
+          <div class="line_break"></div>
+          
+          <label>Expiry:</label>
+          <select name="cc_expiry_month" id="cc_expiry_month">%month_options%</select>
+          <select name="cc_expiry_year" id="cc_expiry_year">%year_options%</select>
+          
+          <div class="line_break"></div>
+          
+          <label>Security Code:</label>
+          <input type="text" value="%customer_cc_code%" name="cc_security_code" id="cc_security_code"
+           maxlength="5" size="3" />
+          
+        </div>  
+        <div class="line_break"></div>
+        <div class="form_footer">#action_process_online#</div>
+      </fieldset>
+      <input type="hidden" name="customer_name" value="%customer_name%" comment="this is posted whne processing payment online" />
+      
+      
+      <script type="text/javascript">
+        $(function()
+        {
+          $("#btn_process_online").click(function()
+          {
+            // First validate the form to make sure all is fine. Otherwise we process 
+            // online and then if we can not save the record to attach the online transaction 
+            // record to it, it will be lost
+            var payment_amount = $.trim($("#payment_amount").val()) ; 
+            if (payment_amount == "")
+            {
+              alert("Please enter payment amount.") ; 
+              return false ;
+            }
+            var payment_method = $("#payment_method").val() ; 
+            if (payment_method == "~def_show_on_no_value~")
+            {
+              alert("Please select method of payment.") ; 
+              return false ;
+            }
+            // ************************************************************    
+            // All is fine, so check for credit card info
+            var cc_num = $.trim($("#cc_num").val()) ; 
+            if (cc_num == "" || cc_num.length != 16)
+            {
+              alert("Please enter credit card number. It has to be 16 digits.") ; 
+              return false ;
+            }
+            var cc_expiry_month = $("#cc_expiry_month").val() ; 
+            if (cc_expiry_month == "~def_show_on_no_value~")
+            {
+              alert("Please select expiry month.") ; 
+              return false ;
+            }
+            var cc_code = $.trim($("#cc_code").val()) ; 
+            if (cc_code == "" || cc_code.length < 3)
+            {
+              alert("Please enter a valid security code It has to be at least 3 digits.") ; 
+              return false ;
+            }
+          }) ;
+          
+          $(".cc_info legend").click(function()
+          {
+            $("#cc_num").val($(this).attr("cc_num")) ;
+            $("#cc_expiry_month").val($(this).attr("exp_month")) ;
+            $("#cc_expiry_year").val($(this).attr("exp_year")) ;
+            $("#cc_security_code").val($(this).attr("cc_code")) ;
+          }) ;
+        }) ; // document.ready
+      </script>
+        
+      
+      
+      <style type="text/css">
+        #online_pay label           {width: 85px;}
+        #online_pay_toggle          {cursor: pointer;} 
+        ##cur_form_name# label      {width: 125px; display: inline-block;}
+        .cc_info                    {float: left; width: 47%; height: 70px;}
+        .cc_info p                  {line-height: 92%;}
+        .cc_info legend             {cursor: pointer;}
+      </style>
+    ]]></layout>
+  </form>
+  <layout>#new_payment#</layout>
+  <title>Process Payment</title>
+  <width>640</width>
+</page>
